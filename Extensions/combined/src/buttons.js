@@ -1,5 +1,6 @@
 import { isMobile, isShorts, extConfig } from "./state";
 import { isInViewport, querySelector, querySelectorAll } from "./utils";
+import { getShortsDislikeControl } from "./shortsDislike";
 
 function getNativeButton(buttonContainer) {
   return querySelector(extConfig.selectors.buttons.nativeButton, buttonContainer);
@@ -53,6 +54,11 @@ function getLikeTextContainer() {
 }
 
 function getDislikeButton() {
+  if (isShorts()) {
+    const owned = getShortsDislikeControl();
+    if (owned) return owned.button;
+  }
+
   if (isSegmentedButtonLayout()) {
     return (
       querySelector(extConfig.selectors.buttons.dislikeButton.segmented) ??
@@ -126,6 +132,11 @@ function createDislikeTextContainer() {
 }
 
 function getDislikeTextContainer() {
+  if (isShorts()) {
+    const owned = getShortsDislikeControl();
+    if (owned) return owned.count;
+  }
+
   let result;
   const nativeDislikeButton = getNativeButton(getDislikeButton());
   for (const selector of extConfig.selectors.dislikeTextContainer) {
