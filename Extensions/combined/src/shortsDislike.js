@@ -1,4 +1,5 @@
-import { localize } from "./utils";
+import { getBrowser, localize } from "./utils";
+import { readStoredVote } from "./voteState";
 
 const voteStateByVideo = new Map();
 
@@ -63,6 +64,24 @@ function setShortsDislikePressed(control, pressed) {
   updateControlLabels(control);
 }
 
+async function restoreShortsVoteState(control, storageArea = getBrowser()?.storage?.local) {
+  if (!control?.videoId || !storageArea) return false;
+
+  let vote;
+  try {
+    vote = await readStoredVote(storageArea, control.videoId);
+  } catch (error) {
+    console.debug("Shorts vote restoration failed:", error?.message ?? error);
+    return false;
+  }
+
+  if (!control.root.isConnected || control.root.dataset.videoId !== control.videoId) return false;
+  const pressed = vote === -1;
+  updateShortsVoteState(control.videoId, { pressed });
+  setShortsDislikePressed(control, pressed);
+  return pressed;
+}
+
 function ensureShortsDislikeControl({ videoId, formattedCount } = {}) {
   const renderer = getActiveShortRenderer();
   const actionBar = getShortsActionBar(renderer);
@@ -110,5 +129,6 @@ export {
   getShortsVoteState,
   setShortsDislikeCount,
   setShortsDislikePressed,
+  restoreShortsVoteState,
   updateShortsVoteState,
 };

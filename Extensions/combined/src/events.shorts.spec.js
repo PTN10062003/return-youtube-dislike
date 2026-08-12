@@ -89,6 +89,26 @@ describe("Shorts RYD voting", () => {
     expect(ownedButton.getAttribute("aria-pressed")).toBe("false");
   });
 
+  it("keeps the owned control unchanged when the extension context rejects vote dispatch", async () => {
+    window.history.replaceState(null, "", "/shorts/invalidated-context");
+    renderShorts();
+    const control = ensureShortsDislikeControl({ videoId: "invalidated-context", formattedCount: "10" });
+    storedData.dislikes = 10;
+    const rejectedDispatch = Promise.reject(new Error("Extension context invalidated."));
+    rejectedDispatch.catch(() => {});
+    chrome.runtime.sendMessage.mockReturnValueOnce(rejectedDispatch);
+    addLikeDislikeEventListener();
+
+    control.button.click();
+    await Promise.resolve();
+    await Promise.resolve();
+
+    expect(control.button.getAttribute("aria-pressed")).toBe("false");
+    expect(control.count.textContent).toBe("10");
+    expect(storedData.dislikes).toBe(10);
+    expect(control.root.dataset.rydPendingVoteDelta).toBeUndefined();
+  });
+
   it("never dispatches native YouTube feedback from the owned Shorts control", () => {
     const feedbackRequests = [];
     const captureRequest = (event) => feedbackRequests.push(event.detail);

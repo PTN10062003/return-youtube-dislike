@@ -3,7 +3,7 @@ import { initializeShortsStateForActiveVideo, isShorts, setInitialState, initExt
 import { getBrowser, getVideoId, isVideoLoaded } from "./src/utils";
 import { addLikeDislikeEventListener, createSmartimationObserver, storageChangeHandler } from "./src/events";
 import { initPatreonFeatures } from "./src/patreon";
-import { ensureShortsDislikeControl } from "./src/shortsDislike";
+import { ensureShortsDislikeControl, restoreShortsVoteState } from "./src/shortsDislike";
 
 await initExtConfig();
 initPatreonFeatures();
@@ -14,8 +14,10 @@ let isStorageListenerRegistered = false;
 let shortsNavigationObserver = null;
 let shortsNavigationObserverTarget = null;
 
-function initializeShortsDislikeForActiveVideo(videoId) {
-  return ensureShortsDislikeControl({ videoId });
+async function initializeShortsDislikeForActiveVideo(videoId) {
+  const control = ensureShortsDislikeControl({ videoId });
+  if (control) await restoreShortsVoteState(control);
+  return control;
 }
 
 function ensureShortsNavigationObserver() {
@@ -69,7 +71,8 @@ async function checkForInitialization() {
       let shortsInitializationGeneration;
       if (isShorts()) {
         const videoId = getVideoId(window.location.href);
-        initializeShortsDislikeForActiveVideo(videoId);
+        await initializeShortsDislikeForActiveVideo(videoId);
+        if (getVideoId(window.location.href) !== videoId) return;
         shortsInitializationGeneration = initializeShortsStateForActiveVideo(videoId);
       }
       createSmartimationObserver();

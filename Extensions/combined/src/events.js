@@ -20,12 +20,26 @@ import {
 import { createRateBar } from "./bar";
 
 function sendVote(vote) {
-  if (extConfig.disableVoteSubmission !== true) {
-    getBrowser().runtime.sendMessage({
+  if (extConfig.disableVoteSubmission === true) return false;
+
+  try {
+    const result = getBrowser().runtime.sendMessage({
       message: "send_vote",
       vote: vote,
       videoId: getVideoId(window.location.href),
     });
+    if (result && typeof result.then === "function") {
+      return result
+        .then((response) => response?.accepted !== false)
+        .catch((error) => {
+          console.debug("Vote dispatch failed:", error?.message ?? error);
+          return false;
+        });
+    }
+    return true;
+  } catch (error) {
+    console.debug("Vote dispatch failed:", error?.message ?? error);
+    return false;
   }
 }
 
@@ -71,10 +85,15 @@ function shortsDislikeClicked() {
   if (extConfig.disableVoteSubmission === true) return;
 
   shortsDislikeTransitionsInFlight.add(videoId);
-  try {
-    const voteState = getShortsVoteState(videoId);
-    if (!voteState.pressed) {
-      sendVote(-1);
+  const voteState = getShortsVoteState(videoId);
+  const nextPressed = !voteState.pressed;
+
+  const applyTransition = () => {
+    updateShortsVoteState(videoId, { pressed: nextPressed });
+    const activeControl = getShortsDislikeControl();
+    if (getVideoId(window.location.href) !== videoId || activeControl?.videoId !== videoId) return;
+
+    if (nextPressed) {
       if (storedData.previousState === LIKED_STATE && storedData.likes > 0) storedData.likes--;
       storedData.dislikes++;
       updateDOMDislikes();
@@ -85,13 +104,23 @@ function shortsDislikeClicked() {
         if (nativeLikes !== false) setLikes(numberFormat(nativeLikes));
       }
     } else {
-      sendVote(0);
       if (storedData.dislikes > 0) storedData.dislikes--;
       updateDOMDislikes();
       storedData.previousState = NEUTRAL_STATE;
       updateShortsDislikeState(false, -1);
     }
-  } finally {
+  };
+
+  const dispatchResult = sendVote(nextPressed ? -1 : 0);
+  if (dispatchResult && typeof dispatchResult.then === "function") {
+    dispatchResult
+      .then((accepted) => {
+        if (accepted) applyTransition();
+      })
+      .catch((error) => console.debug("Vote transition failed:", error?.message ?? error))
+      .finally(() => shortsDislikeTransitionsInFlight.delete(videoId));
+  } else {
+    if (dispatchResult) applyTransition();
     shortsDislikeTransitionsInFlight.delete(videoId);
   }
 }

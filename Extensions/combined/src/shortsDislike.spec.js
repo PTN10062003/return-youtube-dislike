@@ -10,6 +10,7 @@ import {
   getShortsVoteState,
   setShortsDislikeCount,
   setShortsDislikePressed,
+  restoreShortsVoteState,
   updateShortsVoteState,
 } from "./shortsDislike";
 
@@ -86,6 +87,18 @@ describe("Shorts dislike control", () => {
     updateShortsVoteState("revisited-short", { pressed: true });
 
     expect(getShortsVoteState("revisited-short")).toEqual({ pressed: true });
+  });
+
+  it("restores a persisted RYD dislike for a fresh Shorts control", async () => {
+    const control = ensureShortsDislikeControl({ videoId: "persisted-short", formattedCount: "8" });
+    const storageArea = {
+      get: jest.fn(async (key) => ({ [key]: -1 })),
+    };
+
+    await restoreShortsVoteState(control, storageArea);
+
+    expect(control.button.getAttribute("aria-pressed")).toBe("true");
+    expect(getShortsVoteState("persisted-short")).toEqual({ pressed: true });
   });
 
   it("updates the owned count and pressed state", () => {
